@@ -1,0 +1,17 @@
+# Ignore build directories
+/build
+/dist
+
+# Node modules
+/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Jest
+/coverage
