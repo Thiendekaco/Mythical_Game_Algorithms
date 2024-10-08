@@ -1,7 +1,8 @@
-import {CardJson, PlayerJoinGame, PlayerJson} from "../../types";
+import {CardJson, PlayerJoinGame, PlayerJson, ResponseMiddleware, StatCard} from "../../types";
 import {BehaviorSubject, Subject} from "rxjs";
 import { CardStore } from "../../stores/CardStore";
 import {EventJson, GameJson} from "../../types/game";
+import {preGameMiddleware} from "./middlewares/preGameMiddleware";
 
 type GameRecord = Record<string, GameJson>
 export class GameService {
@@ -22,7 +23,26 @@ export class GameService {
     }
 
     public startGame(event: EventJson, player: PlayerJoinGame): GameJson {
+        const { seedGame, round, baseDifficulty, stats, gameRecord } = event;
 
+        const responseOfPreMiddleware: ResponseMiddleware = {
+            game: {
+                id: seedGame,
+                player,
+                cardOpponent: [],
+                rounds: [],
+                creatAt: new Date().toISOString(),
+                state: 'ready'
+            },
+            statsOfEvent: stats,
+            currentRound: 0,
+            baseDifficulty
+        }
+
+
+        const { game} = preGameMiddleware(this, this.#cardStore, responseOfPreMiddleware);
+
+        return game;
 
     }
 

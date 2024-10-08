@@ -18,10 +18,13 @@ export type RoundState = 'finished' | 'active' | 'idle';
 
 export interface RoundJson {
     stats: StatCard[],
+    remainingStats: StatCard[],
     state: RoundState,
     difficulty: number,
+    idealStat: number,
     timeEnd?: string,
     cardOpponent?: CardJson,
+    cardPlayerCanBeat?: CardJson,
     isWin?: boolean,
     cardPlayer?: CardJson,
 }
