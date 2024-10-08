@@ -5,9 +5,9 @@ import {getOpponentCardRandomList, rangeStatGamePlay} from "../../../utils";
 
 
 
-export const preGameMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware) : ResponseMiddleware=> {
+export const preGameMiddleware: BaseMiddleware =  async (gameService, cardStore, responseOfPreMiddleware) : Promise<ResponseMiddleware> => {
 
-    const middlewares = [
+    const middlewares: BaseMiddleware[] = [
         createIDGameMiddleware,
         getOpponentCardMiddleware,
         addStatEachRoundMiddleware,
@@ -18,13 +18,13 @@ export const preGameMiddleware: BaseMiddleware =  (gameService, cardStore, respo
     let response: ResponseMiddleware = {...responseOfPreMiddleware};
 
     for (const middleware of middlewares) {
-        response = middleware(gameService, cardStore, response);
+        response = await middleware(gameService, cardStore, response);
     }
 
-    return response
+    return response;
 }
 
-export const createIDGameMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): ResponseMiddleware => {
+export const createIDGameMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
     const { game } = responseOfPreMiddleware;
     const { player } = game;
 
@@ -33,13 +33,13 @@ export const createIDGameMiddleware: BaseMiddleware =  (gameService, cardStore, 
 
     console.log('LOG: '+ game.id + 'ID GAME');
 
-    return {
-        ...responseOfPreMiddleware,
-        game: {...game}
-    }
+    return Promise.resolve({
+    ...responseOfPreMiddleware,
+            game: {...game}
+    });
 }
 
-export const getOpponentCardMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): ResponseMiddleware => {
+export const getOpponentCardMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
     const { game } = responseOfPreMiddleware;
     const { player, cardOpponent  } = game;
     const cards = cardStore.cards;
@@ -52,19 +52,19 @@ export const getOpponentCardMiddleware: BaseMiddleware =  (gameService, cardStor
     game.cardOpponent  = [...cardOpponent.filter(card => !cardsPlayerRecord[card.def_id])];
 
 
-    return {
+    return Promise.resolve({
         ...responseOfPreMiddleware,
         game: {...game}
-    }
+    });
 }
 
-export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): ResponseMiddleware => {
+export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
     const { game, statsOfEvent, baseDifficulty } = responseOfPreMiddleware;
     const { rounds } = game;
 
     console.log('LOG: Creat stat of each round, '+ rounds.length + 'Rounds');
     if (rounds.length > 0) {
-        return responseOfPreMiddleware;
+        return Promise.resolve(responseOfPreMiddleware);
     } else {
         if (statsOfEvent.length === 0) {
             throw new Error('Stats of event is empty');
@@ -104,16 +104,16 @@ export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardSto
 
 
 
-        return {
+        return  Promise.resolve({
             ...responseOfPreMiddleware,
             game: {...game}
-        };
+        });
     }
 
 }
 
 
-export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): ResponseMiddleware => {
+export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
     const {game, statsOfEvent, currentRound} = responseOfPreMiddleware;
     const {rounds, player: { cardsPlayGame}} = game;
     const rangeStat = rangeStatGamePlay(statsOfEvent, cardsPlayGame);
@@ -137,19 +137,19 @@ export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardS
     });
 
 
-    return {
+    return Promise.resolve({
         ...responseOfPreMiddleware,
         game: {
             ...game,
             rounds: newRounds
         }
-    }
+    });
 
 }
 
 
 
-export const selectCardOpponentMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): ResponseMiddleware => {
+export const selectCardOpponentMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
     const {game, currentRound} = responseOfPreMiddleware;
     const {rounds, cardOpponent} = game;
     const newRounds = [...rounds];
@@ -166,16 +166,16 @@ export const selectCardOpponentMiddleware: BaseMiddleware =  (gameService, cardS
         newRounds[index].cardOpponent = cardOpponentSelected[randomInt(0, CARD_OPPONENT_LENGTH)];
     });
 
-    return {
+    return Promise.resolve({
         ...responseOfPreMiddleware,
         game: {
             ...game,
             rounds: newRounds
         }
-    }
+    });
 }
 
-export const selectCardPlayerCanBeatMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): ResponseMiddleware => {
+export const selectCardPlayerCanBeatMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
     const {game} = responseOfPreMiddleware;
     const {rounds, player: {cardsPlayGame}} = game;
 
@@ -201,11 +201,11 @@ export const selectCardPlayerCanBeatMiddleware: BaseMiddleware =  (gameService, 
         round.cardPlayerCanBeat = cardPlayerCanBeat[randomInt(0, cardPlayerCanBeat.length)];
     }
 
-    return {
+    return Promise.resolve({
         ...responseOfPreMiddleware,
         game: {
             ...game,
             rounds: [...rounds]
         }
-    }
+    });
 }

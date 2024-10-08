@@ -1,5 +1,6 @@
 import { PlayerJoinGame, PlayerJson } from "./player";
 import { CardJson, StatCard } from "./card";
+import EventEmitter from "eventemitter3";
 
 
 
@@ -8,13 +9,23 @@ export interface GameJson {
     player: PlayerJoinGame,
     cardOpponent: CardJson[],
     rounds: RoundJson[],
+    currentRound: number,
     creatAt: string,
     state: GameState,
     isWin?: boolean,
+    event?: EventEmitter<GameEventEmitter>,
 }
 
+export interface GameEventEmitter {
+    onRoundWind: (game: GameJson) => void;
+    onRoundLose: (game: GameJson) => void;
+    onReadyRound: (game: GameJson) => void;
+    onSelectedCard: (card: CardJson) => void;
+}
+
+
 export type GameState = 'finished' | 'active' | 'idle' | 'ready';
-export type RoundState = 'finished' | 'active' | 'idle';
+export type RoundState = 'finished' | 'active' | 'idle'| 'ready';
 
 export interface RoundJson {
     stats: StatCard[],

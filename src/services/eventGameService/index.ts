@@ -46,6 +46,7 @@ export class EventService {
         }
         player.cardsPlayGame = this.selectedCardsPlayerValidate(event, cardsSelected);
         this.createGameOfEvent(event, player);
+
     }
 
     private selectedCardsPlayerValidate(event: EventJson, cardsSelected: CardJson[]): CardJson[] {
@@ -60,8 +61,8 @@ export class EventService {
 
     }
 
-    private createGameOfEvent(event: EventJson, player: PlayerJoinGame): EventJson {
-       const game = this.gameService.startGame(event, player);
+    private async createGameOfEvent(event: EventJson, player: PlayerJoinGame): Promise<EventJson> {
+       const game = await this.gameService.readyStartGame(event, player);
 
        event.gameRecord[game.id] = game;
 

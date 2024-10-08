@@ -14,4 +14,4 @@ export interface ResponseMiddleware {
 
 
 
-export type BaseMiddleware = (game: GameService, cardStore: CardStore, ResponseMiddleware: ResponseMiddleware ) => ResponseMiddleware;
+export type BaseMiddleware = (game: GameService, cardStore: CardStore, ResponseMiddleware: ResponseMiddleware ) => Promise<ResponseMiddleware>;
