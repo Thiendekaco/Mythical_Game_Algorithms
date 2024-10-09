@@ -70,7 +70,7 @@ export class EventService {
             game.event = new EventEmitter<GameEventEmitter>();
         }
 
-        this.gameService.playGame(game, event).then(() => console.log('Game is finished'));
+        this.gameService.playGame(game).then(() => console.log('Game is finished'));
 
         return game.event;
     }

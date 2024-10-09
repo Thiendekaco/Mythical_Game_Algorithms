@@ -40,8 +40,7 @@ export class GameService {
 
     }
 
-    public async playGame(game: GameJson, eventGame: EventJson): Promise<void> {
-        const { baseDifficulty, stats } = eventGame;
+    public async playGame(game: GameJson): Promise<void> {
         const { id: idGame } = game;
 
         if (!game) {
@@ -49,27 +48,26 @@ export class GameService {
         }
 
 
-        const responseOfPreMiddleware: ResponseMiddleware = {
-            game,
-            statsOfEvent: stats,
-            roundEvent: game.rounds.length,
-            baseDifficulty
-        }
 
-
-        game.event?.on('onRoundWind', (game) => {
+        game.event?.on('onRoundWin', (round, cardPlayerRemaining) => {
+            game.rounds[round.id] = round;
+            game.player.cardsPlayGame = cardPlayerRemaining;
+            game.currentRound += 1;
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
-        game.event?.on('onRoundLose', (game) => {
+        game.event?.on('onRoundLose', (round) => {
+            game.rounds[round.id] = round;
+            game.currentRound += 1;
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
-        game.event?.on('onReadyRound', (game) => {
-          this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
+        game.event?.on('onReadyRound', (round) => {
+            game.rounds[round.id] = round;
+            this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
-        await playGameMiddleware(this, this.#cardStore, responseOfPreMiddleware)
+        await playGameMiddleware(game)
 
         this.#gameHandlers.next({...this.gameHandlers, [idGame]: game});
     }

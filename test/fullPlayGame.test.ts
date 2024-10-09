@@ -44,6 +44,10 @@ describe('Game Service', () => {
   test('should create a game of event', async () => {
     game = await eventService.startEvent('event_testing_beta_1', cardPlayerSelectedToPlayGame, player);
 
+    gameService.subscribeGameHandlers((gameHandlers) => {
+        game = gameHandlers[game.id];
+    })
+
     expect(game).toBeDefined();
     expect(game.rounds).toHaveLength(3);
     expect(game.currentRound).toEqual(0);
@@ -56,7 +60,7 @@ describe('Game Service', () => {
     const { promise, resolve } = createPromiseHandler<GameJson>();
 
     console.log('LOG: Game is ready to start_____________________________________');
-    game.event.on('onReadyRound', (game) => {
+    game.event.on('onReadyRound', (round) => {
       console.log('waiting for player to select a card....................');
       const cardPlayerToSelect = game.player.cardsPlayGame;
       const cardToSelected = cardPlayerToSelect[randomInt(0, cardPlayerToSelect.length)]
@@ -64,7 +68,7 @@ describe('Game Service', () => {
     });
 
     game.event.on('onGameFinished', (game) => {
-      console.log('Game is finished at round ', game.currentRound + 1);
+      console.log('Game is finished at round ', game.currentRound);
       if (game.isWin) {
         expect(game.currentRound).toEqual(3);
         expect(game.state).toEqual('finished');

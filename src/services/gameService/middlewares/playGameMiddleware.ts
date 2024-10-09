@@ -1,122 +1,97 @@
-import {BaseMiddleware, ResponseMiddleware} from "../../../types";
+import {BaseMiddleware, CardJson, PlayerJoinGame, ResponseMiddleware} from "../../../types";
 import {createPromiseHandler} from "../../../utils";
+import {GameEventEmitter, GameJson, RoundJson} from "../../../types/game";
+import EventEmitter from "eventemitter3";
 
 
 
-export const playGameMiddleware: BaseMiddleware =  async (gameService, cardStore, responseOfPreMiddleware) : Promise<ResponseMiddleware>=> {
-
-    let response: ResponseMiddleware = {...responseOfPreMiddleware};
-    const roundGames = response.game.rounds;
-    const middlewaresOfEachRoundGame: BaseMiddleware[] = [selectCardPlayerToPlayRoundMiddleware, compareCardPlayerWithOpponentMiddleware, submitNextRoundMiddleware];
-    const middlewares:  BaseMiddleware[] = [...roundGames.map(() => middlewaresOfEachRoundGame).flat()];
+export const playGameMiddleware =  async (game: GameJson) : Promise<void> => {
+    const { player, rounds, event } = game;
     console.log('LOG: Play Game Middleware')
 
-        for (const middleware of middlewares) {
-            try {
-                response = await middleware(gameService, cardStore, response);
-            } catch (e) {
-                break;
-            }
+    while (game.currentRound < rounds.length) {
+        let round: RoundJson = {...rounds[game.currentRound]};
+        round.cardPlayer =  await selectCardPlayerToPlayRoundMiddleware(player, rounds[game.currentRound], event);
+        round.state = 'active';
+        round = await compareCardPlayerWithOpponentMiddleware(round);
 
+        if (round.state === 'active') {
+            round.state = 'finished';
+
+            game.rounds[game.currentRound - 1] = round;
+
+            if (game.currentRound === rounds.length - 1) {
+                console.log('LOG: Game finished');
+                game.state = 'finished';
+                event?.emit('onGameFinished', game);
+                break;
+            } else if (!round.isWin){
+                game.state = 'finished';
+                event?.emit('onRoundLose', round);
+                event?.emit('onGameFinished', game);
+                break;
+            } else {
+                console.log('LOG: Ready next round');
+                player.cardsPlayGame = player.cardsPlayGame.filter((card) => card !== round.cardPlayerCanBeat);
+                console.log('LOG: Card Player Can Beat was removed', game.player.cardsPlayGame, '_', round.cardPlayerCanBeat);
+                event?.emit('onRoundWin', round, player.cardsPlayGame);
+                game.currentRound += 1;
+                game.rounds[game.currentRound] = {...rounds[game.currentRound], state: 'ready'};
+            }
         }
 
+    }
+
     console.log('LOG: Finish Play Game Middleware');
-    return response
 }
 
 
 
 
-export const selectCardPlayerToPlayRoundMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
-    const { game } = responseOfPreMiddleware;
-    const { player, cardOpponent, rounds, currentRound } = game;
-    const { cardsPlayGame } = player;
-    const { promise, resolve } = createPromiseHandler<ResponseMiddleware>();
-    console.log('LOG: Waiting for player to select a card', 'Round', currentRound + 1);
+export const selectCardPlayerToPlayRoundMiddleware =  async (player: PlayerJoinGame, round: RoundJson, event?: EventEmitter<GameEventEmitter>): Promise<CardJson> => {
+    const { promise, resolve } = createPromiseHandler<CardJson>();
+    console.log('LOG: Waiting for player to select a card', 'Round', round.id);
 
-    game.event?.on('onSelectedCard', (card) => {
+    const cb = (card: CardJson) => {
         if (!player.cardsPlayGame.find((cardPlayer) => cardPlayer.def_id === card.def_id)) {
             throw new Error('Card already selected');
         }
 
-        rounds[currentRound].cardPlayer = card;
-        console.log('LOG: Player selected card', card, rounds[currentRound].state);
+        console.log('LOG: Player selected card', card, round.state);
 
-        if (rounds[currentRound].state === 'ready') {
-            rounds[currentRound].state = 'active';
-            resolve({
-                ...responseOfPreMiddleware,
-                game: {...game, rounds }
-            })
+        if (round.state === 'ready') {
+            resolve(card);
         }
+    }
+    event?.on('onSelectedCard', cb);
 
+
+    event?.emit('onReadyRound', round);
+
+    return promise.then((card) => {
+        event?.removeListener('onSelectedCard', cb);
+        return card;
     });
-
-
-    game.event?.emit('onReadyRound', game);
-
-    return promise;
 }
 
-export const compareCardPlayerWithOpponentMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
-    const { game } = responseOfPreMiddleware;
-    const { rounds, currentRound } = game;
-    const { promise, resolve, reject } = createPromiseHandler<ResponseMiddleware>();
-    const round = rounds[currentRound];
+export const compareCardPlayerWithOpponentMiddleware=  (round: RoundJson): Promise<RoundJson> => {
+    const { promise, resolve, reject } = createPromiseHandler<RoundJson>();
     if (round.state === 'active' && round.cardPlayer && round.cardOpponent) {
         const statPlayer = round.stats.reduce((acc, stat) => round.cardPlayer ? acc + round.cardPlayer[stat] : acc, 0);
         const statOpponent = round.stats.reduce((acc, stat) => round.cardOpponent ? acc + round.cardOpponent[stat] : acc, 0);
 
         console.log('LOG: Compare card player with opponent', 'Player: ', statPlayer, ' vs Opponent: ', statOpponent);
 
-        if (statPlayer > statOpponent) {
-            console.log('LOG: Player win round ',currentRound + 1 );
+        if (statPlayer >= statOpponent) {
+            console.log('LOG: Player win round ', round.id);
             round.isWin = true;
-            game.event?.emit('onRoundWind', game);
         } else {
             console.log('LOG: Player lose');
             round.isWin = false;
-            game.event?.emit('onRoundLose', game);
         }
     }
 
-    resolve({
-        ...responseOfPreMiddleware,
-        game: {...game, rounds}
-    });
-
-    return promise;
-}
-
-export const submitNextRoundMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
-    const { game} = responseOfPreMiddleware;
-    const { rounds, currentRound } = game;
-    const { promise, resolve, reject } = createPromiseHandler<ResponseMiddleware>();
-    const round = rounds[currentRound];
-
-    if (round.state === 'active') {
-        round.state = 'finished';
-        if (currentRound === rounds.length - 1) {
-            console.log('LOG: Game finished');
-            game.state = 'finished';
-            game.event?.emit('onGameFinished', game);
-        } else if (!game.rounds[currentRound].isWin){
-            game.state = 'finished';
-            game.event?.emit('onGameFinished', game);
-            reject('Player lose');
-        } else {
-            console.log('LOG: Ready next round');
-            game.player.cardsPlayGame = game.player.cardsPlayGame.filter((card) => card !== round.cardPlayerCanBeat);
-            console.log('LOG: Card Player Can Beat was removed', game.player.cardsPlayGame, '_', round.cardPlayerCanBeat);
-            game.currentRound += 1;
-            game.rounds[game.currentRound].state = 'ready';
-        }
-    }
-
-    resolve({
-        ...responseOfPreMiddleware,
-        game: {...game, rounds}
-    });
+    resolve({...round});
 
     return promise;
 }

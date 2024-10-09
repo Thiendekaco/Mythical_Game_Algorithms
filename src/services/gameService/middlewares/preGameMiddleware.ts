@@ -94,6 +94,7 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
 
 
         rounds.push({
+            id: round,
             stats: randomStats,
             state: 'idle',
             difficulty,

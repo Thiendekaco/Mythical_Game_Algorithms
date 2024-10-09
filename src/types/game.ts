@@ -17,9 +17,9 @@ export interface GameJson {
 }
 
 export interface GameEventEmitter {
-    onRoundWind: (game: GameJson) => void;
-    onRoundLose: (game: GameJson) => void;
-    onReadyRound: (game: GameJson) => void;
+    onRoundWin: (round: RoundJson, cardPlayerRemaining: CardJson[]) => void;
+    onRoundLose: (round: RoundJson) => void;
+    onReadyRound: (round: RoundJson) => void;
     onSelectedCard: (card: CardJson) => void;
     onGameFinished: (game: GameJson) => void;
 }
@@ -29,6 +29,7 @@ export type GameState = 'finished' | 'active' | 'idle' | 'ready';
 export type RoundState = 'finished' | 'active' | 'idle'| 'ready';
 
 export interface RoundJson {
+    id: number,
     stats: StatCard[],
     remainingStats: StatCard[],
     state: RoundState,
