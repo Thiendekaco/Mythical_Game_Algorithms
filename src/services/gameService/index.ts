@@ -29,25 +29,8 @@ export class GameService {
     }
 
     public async readyStartGame (event: EventJson, player: PlayerJoinGame): Promise<GameJson> {
-        const { seedGame, round, baseDifficulty, stats } = event;
 
-        const responseOfPreMiddleware: ResponseMiddleware = {
-            game: {
-                id: seedGame,
-                player,
-                cardOpponent: [],
-                rounds: [],
-                creatAt: new Date().toISOString(),
-                state: 'ready',
-                currentRound: 0,
-            },
-            statsOfEvent: stats,
-            roundEvent: round,
-            baseDifficulty
-        }
-
-
-        const { game} =  await preGameMiddleware(this, this.#cardStore, responseOfPreMiddleware);
+        const game =  preGameMiddleware(this, this.#cardStore, player, event);
         this.#gameHandlers.next({
             ...this.gameHandlers,
             [game.id]: game

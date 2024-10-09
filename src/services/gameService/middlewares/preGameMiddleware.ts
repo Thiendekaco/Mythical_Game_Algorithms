@@ -1,222 +1,153 @@
-import {BaseMiddleware, CardJson, ResponseMiddleware, StatCard} from '../../../types';
+import {BaseMiddleware, CardJson, PlayerJoinGame, PlayerJson, ResponseMiddleware, StatCard} from '../../../types';
 import {randomInt} from 'crypto';
 import {CARD_OPPONENT_LENGTH, INITIAL_TOLERANCE_RANGE} from "../../../constant";
 import {getOpponentCardRandomList, rangeStatGamePlay} from "../../../utils";
+import {EventJson, GameEventEmitter, GameJson, GameState, RoundJson} from "../../../types/game";
+import {GameService} from "../index";
+import {CardStore} from "../../../stores";
 
 
-export const preGameMiddleware: BaseMiddleware =  async (gameService, cardStore, responseOfPreMiddleware) : Promise<ResponseMiddleware> => {
+export const preGameMiddleware = (gameService: GameService, cardStore: CardStore, player: PlayerJoinGame, eventGame: EventJson) : GameJson => {
+    console.log('LOG: Pre Game Middleware');
+    const idGame = createIDGameMiddleware(eventGame.seedGame, player.cardsPlayGame, gameService);
+    const cardOpponents = getOpponentCardMiddleware(cardStore.cards, player.cardsPlayGame);
+    const roundGames = createRoundsOfGameMiddleware(player, cardOpponents, eventGame);
 
-    const middlewares: BaseMiddleware[] = [
-        createIDGameMiddleware,
-        getOpponentCardMiddleware,
-        addStatEachRoundMiddleware,
-        calculateIdealStatMiddleware,
-        selectCardOpponentMiddleware,
-        selectCardPlayerCanBeatMiddleware
-    ];
-    let response: ResponseMiddleware = {...responseOfPreMiddleware};
-
-    console.log('LOG: Pre Game Middleware', responseOfPreMiddleware);
-
-    for (const middleware of middlewares) {
-        response = await middleware(gameService, cardStore, response);
+    const game: GameJson = {
+        id: idGame,
+        player,
+        cardOpponents,
+        rounds: roundGames,
+        currentRound: 0,
+        creatAt: new Date().toISOString(),
+        state: 'ready',
     }
 
-    console.log('LOG: Finish Pre Game Middleware');
-    return response;
+    console.log('LOG: Finish Pre Game Middleware', game.rounds);
+
+    return game;
 }
 
-export const createIDGameMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
-    const { game } = responseOfPreMiddleware;
-    const { player } = game;
+export const createIDGameMiddleware =  (seedEventId: string, cardsPlaySelected: CardJson[], gameService: GameService ): string => {
 
-    const def_id_cards = player.cardsPlayGame.map(card => card.def_id).sort();
-    game.id = gameService.createSeedGame(game.id, def_id_cards);
+    const def_id_cards = cardsPlaySelected.map(card => card.def_id).sort();
+    const idGame = gameService.createSeedGame(seedEventId, def_id_cards);
 
-    console.log('LOG: '+ game.id + 'ID GAME');
+    console.log('LOG: '+ idGame + ' ID GAME');
 
-    return Promise.resolve({
-    ...responseOfPreMiddleware,
-            game: {...game}
-    });
+    return idGame;
 }
 
-export const getOpponentCardMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware): Promise<ResponseMiddleware> => {
-    const { game } = responseOfPreMiddleware;
-    const { player, cardOpponent  } = game;
-    const cards = cardStore.cards;
+export const getOpponentCardMiddleware =  (cardsStore: CardJson[],  cardsPlaySelected: CardJson[]): CardJson[] => {
 
-    const cardsPlayerRecord = player.cardsPlayGame.reduce<Record<string, CardJson>>((record, card) => {
+    const cardsPlayerRecord = cardsPlaySelected.reduce<Record<string, CardJson>>((record, card) => {
         record[card.def_id] = card;
         return record;
     }, {});
 
-    game.cardOpponent  = [...cards.filter(card => !cardsPlayerRecord[card.def_id])];
+    const cardOpponent  = [...cardsStore.filter(card => !cardsPlayerRecord[card.def_id])];
 
-    console.log('LOG: Card Opponent created successfully', game.cardOpponent.splice(0, 4));
+    console.log('LOG: Card Opponent created successfully', cardOpponent.splice(0, 4));
 
-    return Promise.resolve({
-        ...responseOfPreMiddleware,
-        game: {...game}
-    });
+    return cardOpponent;
 }
 
-export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
-    const { game, statsOfEvent, baseDifficulty, roundEvent } = responseOfPreMiddleware;
-    const { rounds } = game;
-
-    console.log('LOG: Creat stat of each round,  Rounds');
-    if (rounds.length > 0) {
-        return Promise.resolve(responseOfPreMiddleware);
-    } else {
-        if (statsOfEvent.length === 0) {
-            throw new Error('Stats of event is empty');
-        }
-
-        for(let round = 1; round <= roundEvent; round++){
-            const randomStats: StatCard[] = [];
-            if (round <= 2) {
-                randomStats.push(statsOfEvent[randomInt(0, statsOfEvent.length)]);
-            } else {
-                while (randomStats.length < 2) {
-                    const randomStat = statsOfEvent[randomInt(0, statsOfEvent.length)];
-                    if (!randomStats.includes(randomStat)) {
-                        randomStats.push(randomStat);
-                    }
-                }
-            }
-
-            const remainingStats = statsOfEvent.filter(stat => !randomStats.includes(stat));
-            const remainingStatsToShow: StatCard[] = [];
-            while (remainingStatsToShow.length < randomStats.length) {
-                const randomStat = remainingStats[randomInt(0, remainingStats.length)];
-                if (!remainingStatsToShow.includes(randomStat)) {
-                    remainingStatsToShow.push(randomStat);
-                }
-            }
-
-            console.log('LOG: ', randomStats ,' Random Stats' + ', Remaining Stats to show: ', remainingStatsToShow,' Round: ', round);
-            game.rounds.push({
-                stats: randomStats,
-                state: 'idle',
-                difficulty: baseDifficulty + (5 - round) * 0.5,
-                idealStat: {},
-                remainingStats: remainingStatsToShow,
-            });
-        }
-
-        console.log('LOG: Add successful', game.rounds ,' _ Rounds');
-
-        return  Promise.resolve({
-            ...responseOfPreMiddleware,
-            game: {...game}
-        });
-    }
-
-}
-
-
-export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
-    const {game, statsOfEvent} = responseOfPreMiddleware;
-    const {rounds, player: { cardsPlayGame}} = game;
-    const rangeStat = rangeStatGamePlay(statsOfEvent, cardsPlayGame);
-    let newRounds = [...rounds];
-    console.log('Range stat: ', rangeStat);
-    newRounds = rounds.map((round, index) => {
-
-        const idealStat = round.stats.reduce<Record<string, number>>((record, stat) => {
-            const [maxStat, minStat] = rangeStat[stat];
-            record[stat] = minStat + (maxStat - minStat) * (round.difficulty / 10);
-            return record;
-        }, {});
-
-        console.log('LOG: ', idealStat , ' Ideal Stat Of Each Round _ Round ', round);
-
-
-        return {
-            ...round,
-            idealStat
-        }
-    });
-
-    console.log('LOG: ', newRounds ,' Ideal Stat Of Each Round');
-
-    return Promise.resolve({
-        ...responseOfPreMiddleware,
-        game: {
-            ...game,
-            rounds: newRounds
-        }
-    });
-
-}
-
-
-
-export const selectCardOpponentMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
-    const {game} = responseOfPreMiddleware;
-    const {rounds, cardOpponent, currentRound} = game;
-    const newRounds = [...rounds];
-    rounds.forEach(({ stats, idealStat}, index) => {
-        let toleranceRange = INITIAL_TOLERANCE_RANGE;
-
-        const cardOpponentSelected: CardJson[] = [];
-
-        while (cardOpponentSelected.length < CARD_OPPONENT_LENGTH) {
-            getOpponentCardRandomList(cardOpponent, stats, idealStat, toleranceRange, cardOpponentSelected);
-            toleranceRange += 1;
-        }
-
-        console.log('LOG: ', cardOpponentSelected , 'List Card Opponent Selected _ Round: ', index + 1, 'Ideal Stat: ', idealStat, 'Stats: ', stats);
-        newRounds[index].cardOpponent = cardOpponentSelected[randomInt(0, CARD_OPPONENT_LENGTH)];
-        console.log('LOG: ', newRounds[index].cardOpponent , 'Card Opponent Selected _ Round', index + 1, 'Ideal Stat: ', idealStat, 'Stats: ', stats);
-    });
-
-    return Promise.resolve({
-        ...responseOfPreMiddleware,
-        game: {
-            ...game,
-            rounds: newRounds
-        }
-    });
-}
-
-export const selectCardPlayerCanBeatMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
-    const {game} = responseOfPreMiddleware;
-    const {rounds, player: {cardsPlayGame}} = game;
+export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOpponents: CardJson[], eventGame: EventJson): RoundJson[] => {
+    const { stats: statsOfEvent, baseDifficulty, round: roundEvent } = eventGame;
+    const rangeStat = rangeStatGamePlay(statsOfEvent, player.cardsPlayGame);
     const cardWasRemoved: string[] = [];
+    const rounds: RoundJson[] = [];
+    console.log('LOG: Creat stat of each round,  Rounds');
 
-    for (const round of rounds) {
-        const { cardOpponent, stats } = round;
-
-        if (!cardOpponent) {
-            throw new Error('Card opponent is not found');
-        }
-        const combineOpponentStat = round.stats.reduce((sumStat, stat) => sumStat + cardOpponent[stat], 0);
-
-        console.log(cardWasRemoved, 'Card Was Removed');
-        const cardPlayerCanBeat = cardsPlayGame.filter((card) => {
-           const combinePlayerStat = round.stats.reduce((sumStat, stat) => sumStat + card[stat], 0);
-
-           return combinePlayerStat > combineOpponentStat && !cardWasRemoved.includes(card.def_id);
-        });
-
-        console.log('LOG: ', cardPlayerCanBeat ,'Card Player Can Beat ', cardOpponent, 'with stats: ', stats);
-
-        if (cardPlayerCanBeat.length === 0) {
-            break;
-        }
-
-        round.cardPlayerCanBeat = cardPlayerCanBeat[randomInt(0, cardPlayerCanBeat.length)];
-        console.log('LOG: Card Player Can Beat', round.cardPlayerCanBeat);
-        cardWasRemoved.push(round.cardPlayerCanBeat.def_id);
+    if (statsOfEvent.length === 0) {
+        throw new Error('Stats of event is empty');
     }
 
-    return Promise.resolve({
-        ...responseOfPreMiddleware,
-        game: {
-            ...game,
-            rounds: [...rounds]
+    for(let round = 1; round <= roundEvent; round++){
+        const randomStats: StatCard[] = [];
+        if (round <= 2) {
+            randomStats.push(statsOfEvent[randomInt(0, statsOfEvent.length)]);
+        } else {
+            while (randomStats.length < 2) {
+                const randomStat = statsOfEvent[randomInt(0, statsOfEvent.length)];
+                if (!randomStats.includes(randomStat)) {
+                    randomStats.push(randomStat);
+                }
+            }
         }
+
+        const remainingStats = statsOfEvent.filter(stat => !randomStats.includes(stat));
+        const remainingStatsToShow: StatCard[] = [];
+        while (remainingStatsToShow.length < randomStats.length) {
+            const randomStat = remainingStats[randomInt(0, remainingStats.length)];
+            if (!remainingStatsToShow.includes(randomStat)) {
+                remainingStatsToShow.push(randomStat);
+            }
+        }
+
+        console.log('LOG: ', randomStats ,' Random Stats' + ', Remaining Stats to show: ', remainingStatsToShow,' Round: ', round);
+        const difficulty = baseDifficulty + (5 - round) * 0.5;
+        const idealStat = calculateIdealStat(randomStats, difficulty, rangeStat);
+        const cardOpponent = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat);
+        const cardPlayerCanBeat = selectCardPlayerCanBeat(player.cardsPlayGame, cardOpponent, randomStats);
+
+
+
+        rounds.push({
+            stats: randomStats,
+            state: 'idle',
+            difficulty,
+            idealStat,
+            remainingStats: remainingStatsToShow,
+            cardOpponent,
+            cardPlayerCanBeat
+        });
+    }
+
+        console.log('LOG: Add successful', rounds ,' _ Rounds');
+
+        return  rounds;
+
+}
+
+export const calculateIdealStat = (stats: StatCard[], difficulty: number, rangeStat: Record<string, number[]>): Record<string, number> => {
+
+    return stats.reduce<Record<string, number>>((record, stat) => {
+        const [maxStat, minStat] = rangeStat[stat];
+        record[stat] = minStat + (maxStat - minStat) * (difficulty / 10);
+        return record;
+    }, {});
+}
+
+const selectCardOpponentForEachRound = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>) => {
+    const cardOpponentSelected: CardJson[] = [];
+    let toleranceRange = INITIAL_TOLERANCE_RANGE;
+
+    while (cardOpponentSelected.length < CARD_OPPONENT_LENGTH) {
+        getOpponentCardRandomList(cardOpponent, stats, idealStat, toleranceRange, cardOpponentSelected);
+        toleranceRange += 1;
+    }
+
+    return cardOpponentSelected[randomInt(0, CARD_OPPONENT_LENGTH)];
+}
+
+
+const selectCardPlayerCanBeat =  (cardsPlayGame: CardJson[], cardOpponent: CardJson, stats: StatCard[]): CardJson| undefined => {
+    const combineOpponentStat = stats.reduce((sumStat, stat) => sumStat + cardOpponent[stat] , 0);
+    const cardPlayerCanBeats = cardsPlayGame.filter((card) => {
+        const combinePlayerStat = stats.reduce((sumStat, stat) => sumStat + card[stat], 0);
+
+        return combinePlayerStat > combineOpponentStat;
     });
+
+    console.log('LOG: ', cardPlayerCanBeats ,'Card Player Can Beat ', cardOpponent, 'with stats: ', stats);
+    let cardPlayerCanBeat = undefined;
+    if (cardPlayerCanBeats.length !== 0) {
+        console.log('LOG: Card Player Can Beat', cardPlayerCanBeat);
+        return cardPlayerCanBeats[randomInt(0, cardPlayerCanBeats.length)];
+    }
+
+
+
+    return undefined;
 }

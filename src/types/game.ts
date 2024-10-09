@@ -7,7 +7,7 @@ import EventEmitter from "eventemitter3";
 export interface GameJson {
     id: string,
     player: PlayerJoinGame,
-    cardOpponent: CardJson[],
+    cardOpponents: CardJson[],
     rounds: RoundJson[],
     currentRound: number,
     creatAt: string,
