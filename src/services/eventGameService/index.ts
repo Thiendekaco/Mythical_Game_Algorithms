@@ -1,9 +1,9 @@
-
-import {BehaviorSubject, Observable, Subject} from "rxjs";
-import {EventJson, GameJson} from "../../types/game";
+import {BehaviorSubject} from "rxjs";
+import {EventJson, GameEventEmitter, GameJson} from "../../types/game";
 import {GameService} from "../gameService";
 import {CardPlayerStore} from "../../stores";
-import {CardJson, PlayerJoinGame, PlayerJson} from "../../types";
+import {CardJson, PlayerJoinGame} from "../../types";
+import EventEmitter from "eventemitter3";
 
 
 type EventRecord = Record<string, EventJson>
@@ -25,6 +25,7 @@ export class EventService {
             ...eventRecord,
             [event.seedGame]: event
         });
+        console.log('Log: EventService createNewEvent', this.events.getValue());
     }
 
     public get eventRecord(): EventRecord {
@@ -32,27 +33,48 @@ export class EventService {
     }
 
 
-    public startEvent(seedEvent: string, cardsSelected: CardJson[]) {
+    public async startEvent(seedEvent: string, cardsSelected: CardJson[], player: PlayerJoinGame) {
+        console.log('LOG: EventService record', this.eventRecord);
+        this.events.subscribe(value => console.log('LOG: EventService record', value));
         const event = this.eventRecord[seedEvent];
         if (!event) {
             throw new Error('Event not found');
         }
 
-        const player: PlayerJoinGame = {
-            cards: this.cardPlayerStore.cards,
-            cardsPlayGame: [],
-            name: 'Something',
-            score: 0,
-        }
         player.cardsPlayGame = this.selectedCardsPlayerValidate(event, cardsSelected);
-        this.createGameOfEvent(event, player);
+        return await this.createGameOfEvent(event, player);
+    }
 
+    public async playEvent(seedEvent: string, game: GameJson): Promise<EventEmitter<GameEventEmitter>> {
+
+        const event = this.eventRecord[seedEvent];
+        if (!event) {
+            throw new Error('Event not found');
+        }
+
+        if (!event.gameRecord[game.id]) {
+            throw new Error('Game not found');
+        }
+
+        if (game.state === 'finished') {
+            throw new Error('Game is finished');
+        }
+
+        if (game.state === 'active') {
+            throw new Error('Game is active');
+        }
+
+        if (game.currentRound === event.round) {
+            throw new Error('Game is in the last round');
+        }
+
+        return await this.gameService.playGame(game.id, event);
     }
 
     private selectedCardsPlayerValidate(event: EventJson, cardsSelected: CardJson[]): CardJson[] {
         const roundNumber = event.round;
 
-        if (cardsSelected.length === roundNumber + 1){
+        if (cardsSelected.length !== roundNumber + 1){
             throw new Error('You can not select more cards');
         }
 
@@ -61,7 +83,7 @@ export class EventService {
 
     }
 
-    private async createGameOfEvent(event: EventJson, player: PlayerJoinGame): Promise<EventJson> {
+    private async createGameOfEvent(event: EventJson, player: PlayerJoinGame): Promise<GameJson> {
        const game = await this.gameService.readyStartGame(event, player);
 
        event.gameRecord[game.id] = game;
@@ -69,7 +91,7 @@ export class EventService {
        this.eventRecord[event.seedGame] = event;
        this.events.next(this.eventRecord);
 
-       return event;
+       return game;
     }
 
     public subscribeEvents(callback: (events: EventRecord) => void): void {

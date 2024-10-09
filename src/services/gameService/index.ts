@@ -29,7 +29,7 @@ export class GameService {
     }
 
     public async readyStartGame (event: EventJson, player: PlayerJoinGame): Promise<GameJson> {
-        const { seedGame, round, baseDifficulty, stats, gameRecord } = event;
+        const { seedGame, round, baseDifficulty, stats } = event;
 
         const responseOfPreMiddleware: ResponseMiddleware = {
             game: {
@@ -43,6 +43,7 @@ export class GameService {
             },
             statsOfEvent: stats,
             currentRound: 0,
+            roundEvent: round,
             baseDifficulty
         }
 
@@ -71,6 +72,7 @@ export class GameService {
         const responseOfPreMiddleware: ResponseMiddleware = {
             game: { ...game},
             statsOfEvent: stats,
+            roundEvent: game.rounds.length,
             currentRound: 0,
             baseDifficulty
         }

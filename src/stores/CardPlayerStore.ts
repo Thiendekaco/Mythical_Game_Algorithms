@@ -1,5 +1,5 @@
 import {CardJson} from "../types";
-import { StartingPlayerCards } from "static";
+import { StartingPlayerCards } from "../../static";
 
 export class CardPlayerStore {
       #cards: CardJson[];

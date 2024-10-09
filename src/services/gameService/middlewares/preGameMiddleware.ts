@@ -17,10 +17,13 @@ export const preGameMiddleware: BaseMiddleware =  async (gameService, cardStore,
     ];
     let response: ResponseMiddleware = {...responseOfPreMiddleware};
 
+    console.log('LOG: Pre Game Middleware', responseOfPreMiddleware);
+
     for (const middleware of middlewares) {
         response = await middleware(gameService, cardStore, response);
     }
 
+    console.log('LOG: Finish Pre Game Middleware');
     return response;
 }
 
@@ -49,8 +52,9 @@ export const getOpponentCardMiddleware: BaseMiddleware =  (gameService, cardStor
         return record;
     }, {});
 
-    game.cardOpponent  = [...cardOpponent.filter(card => !cardsPlayerRecord[card.def_id])];
+    game.cardOpponent  = [...cards.filter(card => !cardsPlayerRecord[card.def_id])];
 
+    console.log('LOG: Card Opponent created successfully', game.cardOpponent.splice(0, 4));
 
     return Promise.resolve({
         ...responseOfPreMiddleware,
@@ -59,10 +63,10 @@ export const getOpponentCardMiddleware: BaseMiddleware =  (gameService, cardStor
 }
 
 export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardStore, responseOfPreMiddleware):  Promise<ResponseMiddleware> => {
-    const { game, statsOfEvent, baseDifficulty } = responseOfPreMiddleware;
+    const { game, statsOfEvent, baseDifficulty, roundEvent } = responseOfPreMiddleware;
     const { rounds } = game;
 
-    console.log('LOG: Creat stat of each round, '+ rounds.length + 'Rounds');
+    console.log('LOG: Creat stat of each round,  Rounds');
     if (rounds.length > 0) {
         return Promise.resolve(responseOfPreMiddleware);
     } else {
@@ -70,7 +74,7 @@ export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardSto
             throw new Error('Stats of event is empty');
         }
 
-        for(let round = 1; round <= game.rounds.length; round++){
+        for(let round = 1; round <= roundEvent; round++){
             const randomStats: StatCard[] = [];
             if (round <= 2) {
                 randomStats.push(statsOfEvent[randomInt(0, statsOfEvent.length)]);
@@ -92,7 +96,7 @@ export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardSto
                 }
             }
 
-            console.log('LOG: '+ randomStats + 'Random Stats' + ', Remaining Stats to show' + remainingStatsToShow);
+            console.log('LOG: ', randomStats ,' Random Stats' + ', Remaining Stats to show: ', remainingStatsToShow,' Round: ', round);
             game.rounds.push({
                 stats: randomStats,
                 state: 'idle',
@@ -102,7 +106,7 @@ export const addStatEachRoundMiddleware: BaseMiddleware =  (gameService, cardSto
             });
         }
 
-
+        console.log('LOG: Add successful', game.rounds.toString() ,' _ Rounds');
 
         return  Promise.resolve({
             ...responseOfPreMiddleware,
@@ -118,7 +122,7 @@ export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardS
     const {rounds, player: { cardsPlayGame}} = game;
     const rangeStat = rangeStatGamePlay(statsOfEvent, cardsPlayGame);
     let newRounds = [...rounds];
-    newRounds = rounds.map((round) => {
+    newRounds = rounds.map((round, index) => {
 
         const idealStat = round.stats.reduce((idealStat, stat) => {
             const [maxStat, minStat] = rangeStat[stat];
@@ -127,7 +131,7 @@ export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardS
             return idealStat + idealOfSingleStat;
         }, 0) / round.stats.length;
 
-        console.log('LOG: '+ idealStat + 'Ideal Stat');
+        console.log('LOG: '+ idealStat + ' Ideal Stat Of Each Round _ Round ', round);
 
 
         return {
@@ -136,6 +140,7 @@ export const calculateIdealStatMiddleware: BaseMiddleware =  (gameService, cardS
         }
     });
 
+    console.log('LOG: ', newRounds ,' Ideal Stat Of Each Round');
 
     return Promise.resolve({
         ...responseOfPreMiddleware,
@@ -163,7 +168,9 @@ export const selectCardOpponentMiddleware: BaseMiddleware =  (gameService, cardS
             toleranceRange += 1;
         }
 
+        console.log('LOG: ', cardOpponentSelected , 'List Card Opponent Selected');
         newRounds[index].cardOpponent = cardOpponentSelected[randomInt(0, CARD_OPPONENT_LENGTH)];
+        console.log('LOG: ', newRounds[index].cardOpponent , 'Card Opponent Selected');
     });
 
     return Promise.resolve({
@@ -193,12 +200,16 @@ export const selectCardPlayerCanBeatMiddleware: BaseMiddleware =  (gameService, 
               return combinePlayerStat > combineOpponentStat
         });
 
+        console.log('LOG: ', cardPlayerCanBeat ,'Card Player Can Beat');
+
         if (cardPlayerCanBeat.length === 0) {
             break;
         }
 
 
         round.cardPlayerCanBeat = cardPlayerCanBeat[randomInt(0, cardPlayerCanBeat.length)];
+
+        console.log('LOG: ', round.cardPlayerCanBeat ,'Card Player Can Beat was selected to remove after round win');
     }
 
     return Promise.resolve({

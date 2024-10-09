@@ -10,6 +10,7 @@ export interface ResponseMiddleware {
     statsOfEvent: StatCard[];
     currentRound: number;
     baseDifficulty: number;
+    roundEvent: number;
 }
 
 

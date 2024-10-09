@@ -1,5 +1,5 @@
 import { CardJson } from "../types";
-import { BotCards } from "static";
+import { BotCards } from "../../static";
 
 export class CardStore {
 
