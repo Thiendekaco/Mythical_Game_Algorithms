@@ -3,7 +3,7 @@ import {BehaviorSubject, Subject} from "rxjs";
 import { CardStore } from "../../stores/CardStore";
 import {EventJson, GameEventEmitter, GameJson} from "../../types/game";
 import {preGameMiddleware} from "./middlewares/preGameMiddleware";
-import EventEmitter from "eventemitter3";
+import {EventEmitter} from "eventemitter3";
 import {playGameMiddleware} from "./middlewares/playGameMiddleware";
 
 type GameRecord = Record<string, GameJson>
@@ -42,7 +42,6 @@ export class GameService {
                 currentRound: 0,
             },
             statsOfEvent: stats,
-            currentRound: 0,
             roundEvent: round,
             baseDifficulty
         }
@@ -58,58 +57,38 @@ export class GameService {
 
     }
 
-    public async playGame(idGame: string, eventGame: EventJson):  Promise<EventEmitter<GameEventEmitter>> {
-        const game = this.gameHandlers[idGame];
+    public async playGame(game: GameJson, eventGame: EventJson): Promise<void> {
         const { baseDifficulty, stats } = eventGame;
+        const { id: idGame } = game;
 
         if (!game) {
             throw new Error('Game not found');
         }
 
-        const event = new EventEmitter<GameEventEmitter>();
-        game.event = event;
 
         const responseOfPreMiddleware: ResponseMiddleware = {
-            game: { ...game},
+            game,
             statsOfEvent: stats,
             roundEvent: game.rounds.length,
-            currentRound: 0,
             baseDifficulty
         }
 
-        await playGameMiddleware(this, this.#cardStore, responseOfPreMiddleware)
-
-
 
         game.event?.on('onRoundWind', (game) => {
-            const currentRound = game.currentRound;
-            game.rounds[currentRound].isWin = true;
-            game.rounds[currentRound].state = 'finished';
-
-            if (currentRound === game.rounds.length - 1) {
-                game.state = 'finished';
-            }
-
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
-        game.event?.on('onRoundLose', () => {
-            const currentRound = game.currentRound;
-            game.rounds[currentRound].isWin = false;
-            game.rounds[currentRound].state = 'finished';
-
+        game.event?.on('onRoundLose', (game) => {
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
         game.event?.on('onReadyRound', (game) => {
           this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
-          console.log('LOG: Ready round', 'Round', game.currentRound, 'Please select a card', game.player.cardsPlayGame);
         });
 
+        await playGameMiddleware(this, this.#cardStore, responseOfPreMiddleware)
+
         this.#gameHandlers.next({...this.gameHandlers, [idGame]: game});
-
-
-        return event;
     }
 
     public selectCardToPlayEachRound(game: GameJson, defId: string): GameJson {
@@ -120,8 +99,9 @@ export class GameService {
             throw new Error('Card not found');
         }
 
+
         round.cardPlayer = cardPlayerSelected;
-        round.state = 'active';
+        round.state = 'ready';
 
         if(game.event){
             game.event.emit('onSelectedCard', cardPlayerSelected);

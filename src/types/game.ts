@@ -21,6 +21,7 @@ export interface GameEventEmitter {
     onRoundLose: (game: GameJson) => void;
     onReadyRound: (game: GameJson) => void;
     onSelectedCard: (card: CardJson) => void;
+    onGameFinished: (game: GameJson) => void;
 }
 
 
@@ -32,7 +33,7 @@ export interface RoundJson {
     remainingStats: StatCard[],
     state: RoundState,
     difficulty: number,
-    idealStat: number,
+    idealStat: Record<string, number>,
     timeEnd?: string,
     cardOpponent?: CardJson,
     cardPlayerCanBeat?: CardJson,

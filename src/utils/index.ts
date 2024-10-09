@@ -18,13 +18,20 @@ export const rangeStatGamePlay = (stats: StatCard[], card: CardJson[]): Record<s
     }, {});
 }
 
-export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: number, toleranceRange: number, cardsSelected: CardJson[]): CardJson[] => {
+export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[]): CardJson[] => {
 
     for (const card of cardOpponent) {
-        const sumStat = stats.reduce((sumStat, stat) => sumStat + card[stat], 0);
-        const diff = Math.abs(sumStat - idealStat);
 
-        if (diff <= toleranceRange && !cardsSelected.includes(card)) {
+        if (cardsSelected.includes(card)) {
+            continue;
+        }
+
+        const isCardOpponentSuitable = stats.every((stat) => {
+            const diff = Math.abs(card[stat] - idealStat[stat]);
+            return diff <= toleranceRange;
+        })
+
+        if (isCardOpponentSuitable) {
             cardsSelected.push(card);
         }
 

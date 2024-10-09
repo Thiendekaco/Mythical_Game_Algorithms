@@ -8,7 +8,6 @@ import {CardStore} from "../stores";
 export interface ResponseMiddleware {
     game: GameJson;
     statsOfEvent: StatCard[];
-    currentRound: number;
     baseDifficulty: number;
     roundEvent: number;
 }

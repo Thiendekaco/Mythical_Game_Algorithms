@@ -3,7 +3,7 @@ import {EventJson, GameEventEmitter, GameJson} from "../../types/game";
 import {GameService} from "../gameService";
 import {CardPlayerStore} from "../../stores";
 import {CardJson, PlayerJoinGame} from "../../types";
-import EventEmitter from "eventemitter3";
+import {EventEmitter} from "eventemitter3";
 
 
 type EventRecord = Record<string, EventJson>
@@ -25,7 +25,6 @@ export class EventService {
             ...eventRecord,
             [event.seedGame]: event
         });
-        console.log('Log: EventService createNewEvent', this.events.getValue());
     }
 
     public get eventRecord(): EventRecord {
@@ -34,8 +33,7 @@ export class EventService {
 
 
     public async startEvent(seedEvent: string, cardsSelected: CardJson[], player: PlayerJoinGame) {
-        console.log('LOG: EventService record', this.eventRecord);
-        this.events.subscribe(value => console.log('LOG: EventService record', value));
+        console.log('LOG: Event record', this.eventRecord);
         const event = this.eventRecord[seedEvent];
         if (!event) {
             throw new Error('Event not found');
@@ -45,7 +43,7 @@ export class EventService {
         return await this.createGameOfEvent(event, player);
     }
 
-    public async playEvent(seedEvent: string, game: GameJson): Promise<EventEmitter<GameEventEmitter>> {
+    public playEvent(seedEvent: string, game: GameJson): EventEmitter<GameEventEmitter> {
 
         const event = this.eventRecord[seedEvent];
         if (!event) {
@@ -68,7 +66,13 @@ export class EventService {
             throw new Error('Game is in the last round');
         }
 
-        return await this.gameService.playGame(game.id, event);
+        if(!game.event) {
+            game.event = new EventEmitter<GameEventEmitter>();
+        }
+
+        this.gameService.playGame(game, event).then(() => console.log('Game is finished'));
+
+        return game.event;
     }
 
     private selectedCardsPlayerValidate(event: EventJson, cardsSelected: CardJson[]): CardJson[] {

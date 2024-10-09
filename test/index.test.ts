@@ -2,8 +2,11 @@
 import { EventService } from "../src/services/eventGameService";
 import {CardJson, PlayerJoinGame, StatCard} from '../src/types';
 import {GameService} from "../src/services/gameService";
-import {EventJson, GameJson} from "../src/types/game";
-import {CardPlayerStore} from "../src/stores"; // Adjust the import path as needed
+import {EventJson, GameEventEmitter, GameJson} from "../src/types/game";
+import {CardPlayerStore} from "../src/stores";
+import {randomInt} from "crypto";
+import {createPromiseHandler} from "../src/utils";
+import {EventEmitter} from "eventemitter3"; // Adjust the import path as needed
 
 describe('Game Service', () => {
   let game: GameJson;
@@ -49,11 +52,33 @@ describe('Game Service', () => {
   });
 
   test('should play game', async() => {
-    await eventService.playEvent('event_testing_beta_1', game);
+    game.event = new EventEmitter<GameEventEmitter>();
+    const { promise, resolve } = createPromiseHandler<GameJson>();
 
-    expect(game.currentRound).toHaveLength(3);
-    expect(game.state).toEqual('finished');
-    expect(game.rounds.every(round => round.state === 'finished')).toBe(true);
-    expect(game.player.cardsPlayGame).toHaveLength(1);
+    console.log('LOG: Game is ready to start_____________________________________');
+    game.event.on('onReadyRound', (game) => {
+      console.log('waiting for player to select a card....................');
+      const cardPlayerToSelect = game.player.cardsPlayGame;
+      const cardToSelected = cardPlayerToSelect[randomInt(0, cardPlayerToSelect.length)]
+      gameService.selectCardToPlayEachRound(game, cardToSelected.def_id);
+    });
+
+    game.event.on('onGameFinished', (game) => {
+      console.log('Game is finished at round ', game.currentRound + 1);
+      if (game.isWin) {
+        expect(game.currentRound).toEqual(3);
+        expect(game.state).toEqual('finished');
+        expect(game.rounds.every(round => round.state === 'finished')).toBe(true);
+        expect(game.player.cardsPlayGame).toHaveLength(1);
+      } else {
+        expect(game.state).toEqual('finished');
+      }
+
+      resolve(game);
+    });
+
+     eventService.playEvent('event_testing_beta_1', game);
+
+     await promise;
   });
 });
