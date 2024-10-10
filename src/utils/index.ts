@@ -4,15 +4,15 @@ import {CARD_OPPONENT_LENGTH} from "../constant";
 export const rangeStatGamePlay = (stats: StatCard[], card: CardJson[]): Record<string, number[]> => {
 
     return stats.reduce<Record<string, number[]>>((record, stat) => {
-        let maxState = card[0][stat];
-        let minState = card[0][stat];
+        let maxStat = card[0][stat];
+        let minStat = card[0][stat];
         card.forEach((card) => {
-            maxState = Math.max(maxState, card[stat]);
-            minState = Math.min(minState, card[stat]);
+            maxStat = Math.max(maxStat, card[stat]);
+            minStat = Math.min(minStat, card[stat]);
         })
 
 
-        record[stat] = [maxState, minState];
+        record[stat] = [maxStat, minStat];
 
         return record;
     }, {});

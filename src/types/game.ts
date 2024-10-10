@@ -41,12 +41,15 @@ export interface RoundJson {
     state: RoundState,
     difficulty: number,
     idealStat: Record<string, number>,
+    cardOpponentPool?: CardJson[],
     timeEnd?: string,
     cardOpponent?: CardJson,
+    cardOpponentStatePoint?: number,
     cardPlayerCanBeat?: CardJson,
     isWin?: boolean,
     score: number,
     cardPlayer?: CardJson,
+    cardPlayerStatePoint?: number,
 }
 
 export interface EventJson {

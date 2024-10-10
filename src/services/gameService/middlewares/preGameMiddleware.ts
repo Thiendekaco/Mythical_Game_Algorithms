@@ -35,7 +35,7 @@ export const createIDGameMiddleware =  (seedEventId: string, cardsPlaySelected: 
     const def_id_cards = cardsPlaySelected.map(card => card.def_id).sort();
     const idGame = gameService.createSeedGame(seedEventId, def_id_cards);
 
-    console.log('LOG: '+ idGame + ' ID GAME');
+    console.log('LOG: ', idGame + Date.now(), ' ID GAME');
 
     return idGame;
 }
@@ -90,7 +90,7 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
         const difficulty = baseDifficulty + (roundEvent - round) * 0.5;
         const rangeStat = rangeStatGamePlay(randomStats, cardsPlayer);
         const idealStat = calculateIdealStat(randomStats, difficulty, rangeStat);
-        const cardOpponent = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, rangeStat);
+        const {cardOpponent, cardOpponentPool} = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, rangeStat);
         const cardPlayerCanBeat = selectCardPlayerCanBeat(cardsPlayer, cardOpponent, randomStats);
         if (cardPlayerCanBeat) {
             cardsPlayer.splice(cardsPlayer.indexOf(cardPlayerCanBeat), 1);
@@ -104,6 +104,7 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
             idealStat,
             score: 0,
             remainingStats: remainingStatsToShow,
+            cardOpponentPool,
             cardOpponent,
             cardPlayerCanBeat
         });
@@ -128,12 +129,14 @@ const selectCardOpponentForEachRound = (cardOpponents: CardJson[], stats: StatCa
     const cardOpponentSelected: CardJson[] = [];
     let toleranceRange = INITIAL_TOLERANCE_RANGE;
 
+    console.log(rangeStat, 'Range Stat');
     while (cardOpponentSelected.length < CARD_OPPONENT_LENGTH) {
         getOpponentCardRandomList(cardOpponents, stats, idealStat, toleranceRange, cardOpponentSelected, rangeStat);
         toleranceRange += 1;
     }
 
-    return cardOpponentSelected[randomInt(0, CARD_OPPONENT_LENGTH)];
+
+    return { cardOpponent: cardOpponentSelected[randomInt(0, CARD_OPPONENT_LENGTH)], cardOpponentPool: cardOpponentSelected};
 }
 
 

@@ -71,16 +71,11 @@ export class GameService {
     }
 
     public selectCardToPlayEachRound(game: GameJson, defId: string): GameJson {
-        const round = game.rounds[game.currentRound];
         const cardPlayerSelected = this.#cardStore.getCardById(defId);
 
         if(!cardPlayerSelected) {
             throw new Error('Card not found');
         }
-
-
-        round.cardPlayer = cardPlayerSelected;
-        round.state = 'ready';
 
         if(game.event){
             game.event.emit('onSelectedCard', cardPlayerSelected);

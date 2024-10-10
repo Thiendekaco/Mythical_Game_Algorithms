@@ -92,15 +92,15 @@ export const selectCardPlayerToPlayRoundMiddleware =  async (player: PlayerJoinG
 export const compareCardPlayerWithOpponentMiddleware=  (round: RoundJson): Promise<RoundJson> => {
     const { promise, resolve, reject } = createPromiseHandler<RoundJson>();
     if (round.state === 'active' && round.cardPlayer && round.cardOpponent) {
-        const statPlayer = round.stats.reduce((acc, stat) => round.cardPlayer ? acc + round.cardPlayer[stat] : acc, 0);
-        const statOpponent = round.stats.reduce((acc, stat) => round.cardOpponent ? acc + round.cardOpponent[stat] : acc, 0);
+        round.cardPlayerStatePoint = round.stats.reduce((acc, stat) => round.cardPlayer ? acc + round.cardPlayer[stat] : acc, 0);
+        round.cardOpponentStatePoint = round.stats.reduce((acc, stat) => round.cardOpponent ? acc + round.cardOpponent[stat] : acc, 0);
 
-        console.log('LOG: Compare card player with opponent', 'Player: ', statPlayer, ' vs Opponent: ', statOpponent);
+        console.log('LOG: Compare card player with opponent', 'Player: ', round.cardPlayerStatePoint, ' vs Opponent: ', round.cardOpponentStatePoint);
 
-        if (statPlayer >= statOpponent) {
+        if ( round.cardPlayerStatePoint >= round.cardOpponentStatePoint) {
             console.log('LOG: Player win round ', round.id);
             round.isWin = true;
-            round.score = statPlayer;
+            round.score = round.cardPlayerStatePoint;
         } else {
             console.log('LOG: Player lose');
             round.isWin = false;
