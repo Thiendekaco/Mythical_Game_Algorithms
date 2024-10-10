@@ -50,20 +50,18 @@ export class GameService {
 
 
         game.event?.on('onRoundWin', (round, cardPlayerRemaining) => {
-            game.rounds[round.id] = round;
+            game.rounds[round.id - 1] = round;
             game.player.cardsPlayGame = cardPlayerRemaining;
-            game.currentRound += 1;
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
         game.event?.on('onRoundLose', (round) => {
-            game.rounds[round.id] = round;
-            game.currentRound += 1;
+            game.rounds[round.id - 1] = round;
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
         game.event?.on('onReadyRound', (round) => {
-            game.rounds[round.id] = round;
+            game.rounds[round.id - 1] = round;
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 

@@ -1,16 +1,17 @@
-import {BaseMiddleware, CardJson, PlayerJoinGame, PlayerJson, ResponseMiddleware, StatCard} from '../../../types';
+import {CardJson, PlayerJoinGame, StatCard} from '../../../types';
 import {randomInt} from 'crypto';
 import {CARD_OPPONENT_LENGTH, INITIAL_TOLERANCE_RANGE} from "../../../constant";
 import {getOpponentCardRandomList, rangeStatGamePlay} from "../../../utils";
-import {EventJson, GameEventEmitter, GameJson, GameState, RoundJson} from "../../../types/game";
+import {EventJson, GameJson, RoundJson} from "../../../types/game";
 import {GameService} from "../index";
 import {CardStore} from "../../../stores";
 
 
 export const preGameMiddleware = (gameService: GameService, cardStore: CardStore, player: PlayerJoinGame, eventGame: EventJson) : GameJson => {
     console.log('LOG: Pre Game Middleware');
-    const idGame = createIDGameMiddleware(eventGame.seedGame, player.cardsPlayGame, gameService);
-    const cardOpponents = getOpponentCardMiddleware(cardStore.cards, player.cardsPlayGame);
+    const creatAt = new Date().toISOString();
+    const idGame = createIDGameMiddleware(eventGame.seedGame, player.cardsPlayGame, creatAt, gameService);
+    const cardOpponents = getOpponentCardMiddleware(cardStore.cards, player.cardsPlayGame, eventGame.opponentTeam);
     const roundGames = createRoundsOfGameMiddleware(player, cardOpponents, eventGame);
 
     const game: GameJson = {
@@ -19,8 +20,9 @@ export const preGameMiddleware = (gameService: GameService, cardStore: CardStore
         cardOpponents,
         rounds: roundGames,
         currentRound: 0,
-        creatAt: new Date().toISOString(),
+        creatAt,
         state: 'ready',
+        bonusPoints: eventGame.bonusPoints,
     }
 
     console.log('LOG: Finish Pre Game Middleware', game.rounds);
@@ -28,7 +30,7 @@ export const preGameMiddleware = (gameService: GameService, cardStore: CardStore
     return game;
 }
 
-export const createIDGameMiddleware =  (seedEventId: string, cardsPlaySelected: CardJson[], gameService: GameService ): string => {
+export const createIDGameMiddleware =  (seedEventId: string, cardsPlaySelected: CardJson[], creatAt: string, gameService: GameService ): string => {
 
     const def_id_cards = cardsPlaySelected.map(card => card.def_id).sort();
     const idGame = gameService.createSeedGame(seedEventId, def_id_cards);
@@ -38,14 +40,14 @@ export const createIDGameMiddleware =  (seedEventId: string, cardsPlaySelected: 
     return idGame;
 }
 
-export const getOpponentCardMiddleware =  (cardsStore: CardJson[],  cardsPlaySelected: CardJson[]): CardJson[] => {
+export const getOpponentCardMiddleware =  (cardsStore: CardJson[],  cardsPlaySelected: CardJson[], opponentTeam?: string): CardJson[] => {
 
     const cardsPlayerRecord = cardsPlaySelected.reduce<Record<string, CardJson>>((record, card) => {
         record[card.def_id] = card;
         return record;
     }, {});
 
-    const cardOpponent  = [...cardsStore.filter(card => !cardsPlayerRecord[card.def_id])];
+    const cardOpponent  = [...cardsStore.filter(card => !cardsPlayerRecord[card.def_id] &&(!opponentTeam || card.team === opponentTeam))];
 
     console.log('LOG: Card Opponent created successfully', cardOpponent.splice(0, 4));
 
@@ -54,8 +56,7 @@ export const getOpponentCardMiddleware =  (cardsStore: CardJson[],  cardsPlaySel
 
 export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOpponents: CardJson[], eventGame: EventJson): RoundJson[] => {
     const { stats: statsOfEvent, baseDifficulty, round: roundEvent } = eventGame;
-    const rangeStat = rangeStatGamePlay(statsOfEvent, player.cardsPlayGame);
-    const cardWasRemoved: string[] = [];
+    const cardsPlayer = [...player.cardsPlayGame];
     const rounds: RoundJson[] = [];
     console.log('LOG: Creat stat of each round,  Rounds');
 
@@ -86,12 +87,14 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
         }
 
         console.log('LOG: ', randomStats ,' Random Stats' + ', Remaining Stats to show: ', remainingStatsToShow,' Round: ', round);
-        const difficulty = baseDifficulty + (5 - round) * 0.5;
+        const difficulty = baseDifficulty + (roundEvent - round) * 0.5;
+        const rangeStat = rangeStatGamePlay(randomStats, cardsPlayer);
         const idealStat = calculateIdealStat(randomStats, difficulty, rangeStat);
-        const cardOpponent = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat);
-        const cardPlayerCanBeat = selectCardPlayerCanBeat(player.cardsPlayGame, cardOpponent, randomStats);
-
-
+        const cardOpponent = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, rangeStat);
+        const cardPlayerCanBeat = selectCardPlayerCanBeat(cardsPlayer, cardOpponent, randomStats);
+        if (cardPlayerCanBeat) {
+            cardsPlayer.splice(cardsPlayer.indexOf(cardPlayerCanBeat), 1);
+        }
 
         rounds.push({
             id: round,
@@ -99,6 +102,7 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
             state: 'idle',
             difficulty,
             idealStat,
+            score: 0,
             remainingStats: remainingStatsToShow,
             cardOpponent,
             cardPlayerCanBeat
@@ -120,12 +124,12 @@ export const calculateIdealStat = (stats: StatCard[], difficulty: number, rangeS
     }, {});
 }
 
-const selectCardOpponentForEachRound = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>) => {
+const selectCardOpponentForEachRound = (cardOpponents: CardJson[], stats: StatCard[], idealStat: Record<string, number>, rangeStat: Record<string, number[]>) => {
     const cardOpponentSelected: CardJson[] = [];
     let toleranceRange = INITIAL_TOLERANCE_RANGE;
 
     while (cardOpponentSelected.length < CARD_OPPONENT_LENGTH) {
-        getOpponentCardRandomList(cardOpponent, stats, idealStat, toleranceRange, cardOpponentSelected);
+        getOpponentCardRandomList(cardOpponents, stats, idealStat, toleranceRange, cardOpponentSelected, rangeStat);
         toleranceRange += 1;
     }
 
@@ -141,10 +145,8 @@ const selectCardPlayerCanBeat =  (cardsPlayGame: CardJson[], cardOpponent: CardJ
         return combinePlayerStat > combineOpponentStat;
     });
 
-    console.log('LOG: ', cardPlayerCanBeats ,'Card Player Can Beat ', cardOpponent, 'with stats: ', stats);
-    let cardPlayerCanBeat = undefined;
+    console.log('LOG: ', cardPlayerCanBeats ,'Card Player Can Beat ', cardOpponent, 'with stats: ', stats, 'remaining cards: ', cardsPlayGame);
     if (cardPlayerCanBeats.length !== 0) {
-        console.log('LOG: Card Player Can Beat', cardPlayerCanBeat);
         return cardPlayerCanBeats[randomInt(0, cardPlayerCanBeats.length)];
     }
 

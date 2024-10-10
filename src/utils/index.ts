@@ -18,7 +18,7 @@ export const rangeStatGamePlay = (stats: StatCard[], card: CardJson[]): Record<s
     }, {});
 }
 
-export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[]): CardJson[] => {
+export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[], rangeStat: Record<string, number[]>): CardJson[] => {
 
     for (const card of cardOpponent) {
 
@@ -28,7 +28,7 @@ export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatC
 
         const isCardOpponentSuitable = stats.every((stat) => {
             const diff = Math.abs(card[stat] - idealStat[stat]);
-            return diff <= toleranceRange;
+            return diff <= toleranceRange && card[stat] <= rangeStat[stat][0];
         })
 
         if (isCardOpponentSuitable) {
@@ -66,3 +66,8 @@ export function createPromiseHandler<T> () {
 }
 
 export type PromiseHandler<T> = ReturnType<typeof createPromiseHandler<T>>;
+
+
+export function isSameString(arr1: any | string, arr2: string): boolean {
+    return arr2.toLowerCase().includes((arr1 as string).toLowerCase());
+}

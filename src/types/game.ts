@@ -1,4 +1,4 @@
-import { PlayerJoinGame, PlayerJson } from "./player";
+import { PlayerJoinGame } from "./player";
 import { CardJson, StatCard } from "./card";
 import EventEmitter from "eventemitter3";
 
@@ -14,6 +14,12 @@ export interface GameJson {
     state: GameState,
     isWin?: boolean,
     event?: EventEmitter<GameEventEmitter>,
+    bonusPoints?: BonusPoint[],
+}
+
+export interface BonusPoint {
+    point: number,
+    conditions: Record<string, string>
 }
 
 export interface GameEventEmitter {
@@ -39,6 +45,7 @@ export interface RoundJson {
     cardOpponent?: CardJson,
     cardPlayerCanBeat?: CardJson,
     isWin?: boolean,
+    score: number,
     cardPlayer?: CardJson,
 }
 
@@ -50,4 +57,6 @@ export interface EventJson {
     dateStart?: string,
     stats: StatCard[],
     gameRecord: Record<string, GameJson>
+    bonusPoints?: BonusPoint[],
+    opponentTeam?: string
 }
