@@ -15,7 +15,7 @@ const cardPlayerDefault = new CardPlayerStore();
 const statsOfEvent = [StatCard.POWER, StatCard.PRESENCE, StatCard.ENDURANCE, StatCard.STRENGTH];
 const gameService = new GameService();
 const eventService = new EventService(gameService);
-
+const roundEvent = 5;
 const player: PlayerJoinGame = {
   name: 'Player 1',
   score: 0,
@@ -26,21 +26,28 @@ const player: PlayerJoinGame = {
 describe('Testing game in case with fixed player card ', () => {
 
 
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 400; i++) {
     describe(`Run ${i + 1}`, () => {
       let game: GameJson;
-      let cardPlayerSelectedToPlayGame: CardJson[] = [];
+      let cardPlayerSelectedToPlayGame= new Set<CardJson>();
 
       test('should create an event', () => {
         const event: EventJson = {
           seedGame: 'event_testing_beta_1',
-          round: 3,
+          round: roundEvent,
           baseDifficulty: 1,
           stats: statsOfEvent,
           gameRecord: {}
         };
 
-        cardPlayerSelectedToPlayGame = cardPlayerDefault.cards.slice(0, 4);
+        while (cardPlayerSelectedToPlayGame.size < roundEvent + 1 ) {
+          const cardFilter = cardPlayerDefault.cards.filter(card => !cardPlayerSelectedToPlayGame.has(card));
+          if(cardFilter.length === 1) {
+            cardPlayerSelectedToPlayGame.add(cardFilter[0]);
+          } else {
+            cardPlayerSelectedToPlayGame.add(cardFilter[randomInt(0, cardFilter.length - 1)]);
+          }
+        }
         eventService.createNewEvent(event);
 
         expect(eventService.eventRecord[event.seedGame]).toBeDefined();
@@ -48,14 +55,14 @@ describe('Testing game in case with fixed player card ', () => {
       });
 
       test('should create a game of event', async () => {
-        game = await eventService.startEvent('event_testing_beta_1', cardPlayerSelectedToPlayGame, player);
+        game = await eventService.startEvent('event_testing_beta_1', [...cardPlayerSelectedToPlayGame], player);
 
         gameService.subscribeGameHandlers((gameHandlers) => {
           game = gameHandlers[game.id];
         });
 
         expect(game).toBeDefined();
-        expect(game.rounds).toHaveLength(3);
+        expect(game.rounds).toHaveLength(roundEvent);
         expect(game.currentRound).toEqual(0);
         expect(game.state).toEqual('ready');
         expect(game.rounds.flatMap(round => round.stats).every(stat => statsOfEvent.includes(stat))).toBe(true);
@@ -82,16 +89,14 @@ describe('Testing game in case with fixed player card ', () => {
 
         game.event.on('onGameFinished', (game) => {
           console.log('Game is finished at round ', game.currentRound);
-          if (game.isWin) {
-            expect(game.currentRound).toEqual(3);
-            expect(game.state).toEqual('finished');
-            expect(game.rounds.every(round => round.state === 'finished')).toBe(true);
-            expect(game.player.cardsPlayGame).toHaveLength(1);
-          } else {
-            expect(game.state).toEqual('finished');
-          }
 
-          writeTestResultToExcel(dir_path, convertRoundDataToExcelData([...game.rounds], game.id, i + 1));
+          expect(game.currentRound).toEqual(roundEvent);
+          expect(game.state).toEqual('finished');
+          expect(game.rounds.every(round => round.state === 'finished')).toBe(true);
+          expect(game.player.cardsPlayGame).toHaveLength(2);
+
+
+          writeTestResultToExcel(dir_path, convertRoundDataToExcelData([...game.rounds], game.id, [...cardPlayerSelectedToPlayGame], i + 1), 'Test Case 5', roundEvent);
 
           resolve(game);
         });

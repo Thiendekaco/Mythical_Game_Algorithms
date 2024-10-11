@@ -24,7 +24,7 @@ export interface BonusPoint {
 
 export interface GameEventEmitter {
     onRoundWin: (round: RoundJson, cardPlayerRemaining: CardJson[]) => void;
-    onRoundLose: (round: RoundJson) => void;
+    onRoundLose: (round: RoundJson, cardPlayerRemaining: CardJson[]) => void;
     onReadyRound: (round: RoundJson) => void;
     onSelectedCard: (card: CardJson) => void;
     onGameFinished: (game: GameJson) => void;
@@ -44,12 +44,13 @@ export interface RoundJson {
     cardOpponentPool?: CardJson[],
     timeEnd?: string,
     cardOpponent?: CardJson,
-    cardOpponentStatePoint?: number,
+    cardOpponentStatPoint?: number,
     cardPlayerCanBeat?: CardJson,
     isWin?: boolean,
     score: number,
     cardPlayer?: CardJson,
-    cardPlayerStatePoint?: number,
+    cardPlayerStatPoint?: number,
+    cardPlayerPool?: CardJson[]
 }
 
 export interface EventJson {

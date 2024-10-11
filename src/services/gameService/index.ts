@@ -55,8 +55,9 @@ export class GameService {
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 
-        game.event?.on('onRoundLose', (round) => {
+        game.event?.on('onRoundLose', (round, cardPlayerRemaining) => {
             game.rounds[round.id - 1] = round;
+            game.player.cardsPlayGame = cardPlayerRemaining;
             this.#gameHandlers.next({...this.gameHandlers, [idGame]: {...game}});
         });
 

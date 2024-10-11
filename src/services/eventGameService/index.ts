@@ -78,6 +78,8 @@ export class EventService {
     private selectedCardsPlayerValidate(event: EventJson, cardsSelected: CardJson[]): CardJson[] {
         const roundNumber = event.round;
 
+        console.log('LOG: Cards selected', cardsSelected, 'Round Number', roundNumber);
+
         if (cardsSelected.length !== roundNumber + 1){
             throw new Error('You can not select more cards');
         }

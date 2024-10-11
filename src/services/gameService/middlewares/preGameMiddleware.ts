@@ -90,7 +90,12 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
         const difficulty = baseDifficulty + (roundEvent - round) * 0.5;
         const rangeStat = rangeStatGamePlay(randomStats, cardsPlayer);
         const idealStat = calculateIdealStat(randomStats, difficulty, rangeStat);
-        const {cardOpponent, cardOpponentPool} = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, rangeStat);
+        const maxStatPoint = cardsPlayer.reduce((maxStat, card )=> {
+            const combineStat = randomStats.reduce((sumStat, stat) => sumStat + card[stat], 0);
+            return Math.max(maxStat, combineStat);
+        }, 0);
+        const {cardOpponent, cardOpponentPool} = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, maxStatPoint);
+
         const cardPlayerCanBeat = selectCardPlayerCanBeat(cardsPlayer, cardOpponent, randomStats);
         if (cardPlayerCanBeat) {
             cardsPlayer.splice(cardsPlayer.indexOf(cardPlayerCanBeat), 1);
@@ -125,13 +130,12 @@ export const calculateIdealStat = (stats: StatCard[], difficulty: number, rangeS
     }, {});
 }
 
-const selectCardOpponentForEachRound = (cardOpponents: CardJson[], stats: StatCard[], idealStat: Record<string, number>, rangeStat: Record<string, number[]>) => {
+const selectCardOpponentForEachRound = (cardOpponents: CardJson[], stats: StatCard[], idealStat: Record<string, number>, maxStatPoint: number) => {
     const cardOpponentSelected: CardJson[] = [];
     let toleranceRange = INITIAL_TOLERANCE_RANGE;
 
-    console.log(rangeStat, 'Range Stat');
     while (cardOpponentSelected.length < CARD_OPPONENT_LENGTH) {
-        getOpponentCardRandomList(cardOpponents, stats, idealStat, toleranceRange, cardOpponentSelected, rangeStat);
+        getOpponentCardRandomList(cardOpponents, stats, idealStat, toleranceRange, cardOpponentSelected, maxStatPoint);
         toleranceRange += 1;
     }
 
@@ -145,7 +149,7 @@ const selectCardPlayerCanBeat =  (cardsPlayGame: CardJson[], cardOpponent: CardJ
     const cardPlayerCanBeats = cardsPlayGame.filter((card) => {
         const combinePlayerStat = stats.reduce((sumStat, stat) => sumStat + card[stat], 0);
 
-        return combinePlayerStat > combineOpponentStat;
+        return combinePlayerStat >= combineOpponentStat;
     });
 
     console.log('LOG: ', cardPlayerCanBeats ,'Card Player Can Beat ', cardOpponent, 'with stats: ', stats, 'remaining cards: ', cardsPlayGame);
@@ -153,7 +157,6 @@ const selectCardPlayerCanBeat =  (cardsPlayGame: CardJson[], cardOpponent: CardJ
         return cardPlayerCanBeats[randomInt(0, cardPlayerCanBeats.length)];
     }
 
+    throw new Error('Card Player Can Beat is empty');
 
-
-    return undefined;
 }

@@ -2,7 +2,6 @@ import {CardJson, StatCard} from "../types";
 import {CARD_OPPONENT_LENGTH} from "../constant";
 
 export const rangeStatGamePlay = (stats: StatCard[], card: CardJson[]): Record<string, number[]> => {
-
     return stats.reduce<Record<string, number[]>>((record, stat) => {
         let maxStat = card[0][stat];
         let minStat = card[0][stat];
@@ -18,18 +17,20 @@ export const rangeStatGamePlay = (stats: StatCard[], card: CardJson[]): Record<s
     }, {});
 }
 
-export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[], rangeStat: Record<string, number[]>): CardJson[] => {
+export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[], maxStatsPoint: number): CardJson[] => {
 
     for (const card of cardOpponent) {
 
         if (cardsSelected.includes(card)) {
             continue;
         }
+        let combineStat = 0;
 
         const isCardOpponentSuitable = stats.every((stat) => {
             const diff = Math.abs(card[stat] - idealStat[stat]);
-            return diff <= toleranceRange && card[stat] <= rangeStat[stat][0];
-        })
+            combineStat += card[stat];
+            return diff <= toleranceRange;
+        }) && combineStat <= maxStatsPoint;
 
         if (isCardOpponentSuitable) {
             cardsSelected.push(card);

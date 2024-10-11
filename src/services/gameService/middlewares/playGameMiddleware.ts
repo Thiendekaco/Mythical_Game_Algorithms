@@ -11,7 +11,6 @@ export const playGameMiddleware =  async (game: GameJson) : Promise<void> => {
     game.currentRound = 1;
     while (game.currentRound <= rounds.length) {
         let round: RoundJson = {...rounds[game.currentRound - 1]};
-        console.log('LOG: Start round', round);
         round.state = 'ready';
         round.cardPlayer =  await selectCardPlayerToPlayRoundMiddleware(player, round, event);
         round.state = 'active';
@@ -32,29 +31,29 @@ export const playGameMiddleware =  async (game: GameJson) : Promise<void> => {
             game.player.score += round.score;
             game.rounds[game.currentRound - 1] = round;
 
-            if (!round.isWin) {
+            if (game.currentRound === rounds.length ) {
+                console.log('LOG: Game finished');
                 game.state = 'finished';
-                event?.emit('onRoundLose', round);
+                if(round.isWin){
+                    event?.emit('onRoundWin', round, player.cardsPlayGame);
+                } else {
+                    event?.emit('onRoundLose', round, player.cardsPlayGame);
+                }
                 event?.emit('onGameFinished', game);
                 break;
             } else {
-                if (game.currentRound === rounds.length ) {
-                    console.log('LOG: Game finished');
-                    game.state = 'finished';
+                console.log('LOG: Ready next round');
+                player.cardsPlayGame = player.cardsPlayGame.filter((card) => card.def_id !== round.cardPlayer?.def_id);
+                console.log('LOG: Card Player Can Beat was removed', game.player.cardsPlayGame, '_', round.cardPlayer?.def_id);
+                if(round.isWin){
                     event?.emit('onRoundWin', round, player.cardsPlayGame);
-                    event?.emit('onGameFinished', game);
-                    break;
                 } else {
-                    console.log('LOG: Ready next round');
-                    player.cardsPlayGame = player.cardsPlayGame.filter((card) => card !== round.cardPlayerCanBeat);
-                    console.log('LOG: Card Player Can Beat was removed', game.player.cardsPlayGame, '_', round.cardPlayerCanBeat);
-                    event?.emit('onRoundWin', round, player.cardsPlayGame);
-                    ++game.currentRound;
+                    event?.emit('onRoundLose', round, player.cardsPlayGame);
                 }
-
+                ++game.currentRound;
             }
-        }
 
+        }
     }
 
     console.log('LOG: Finish Play Game Middleware');
@@ -92,15 +91,15 @@ export const selectCardPlayerToPlayRoundMiddleware =  async (player: PlayerJoinG
 export const compareCardPlayerWithOpponentMiddleware=  (round: RoundJson): Promise<RoundJson> => {
     const { promise, resolve, reject } = createPromiseHandler<RoundJson>();
     if (round.state === 'active' && round.cardPlayer && round.cardOpponent) {
-        round.cardPlayerStatePoint = round.stats.reduce((acc, stat) => round.cardPlayer ? acc + round.cardPlayer[stat] : acc, 0);
-        round.cardOpponentStatePoint = round.stats.reduce((acc, stat) => round.cardOpponent ? acc + round.cardOpponent[stat] : acc, 0);
+        round.cardPlayerStatPoint = round.stats.reduce((acc, stat) => round.cardPlayer ? acc + round.cardPlayer[stat] : acc, 0);
+        round.cardOpponentStatPoint = round.stats.reduce((acc, stat) => round.cardOpponent ? acc + round.cardOpponent[stat] : acc, 0);
 
-        console.log('LOG: Compare card player with opponent', 'Player: ', round.cardPlayerStatePoint, ' vs Opponent: ', round.cardOpponentStatePoint);
+        console.log('LOG: Compare card player with opponent', 'Player: ', round.cardPlayerStatPoint, ' vs Opponent: ', round.cardOpponentStatPoint);
 
-        if ( round.cardPlayerStatePoint >= round.cardOpponentStatePoint) {
+        if ( round.cardPlayerStatPoint >= round.cardOpponentStatPoint) {
             console.log('LOG: Player win round ', round.id);
             round.isWin = true;
-            round.score = round.cardPlayerStatePoint;
+            round.score = round.cardPlayerStatPoint;
         } else {
             console.log('LOG: Player lose');
             round.isWin = false;
