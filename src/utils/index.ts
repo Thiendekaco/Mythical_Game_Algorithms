@@ -21,7 +21,7 @@ export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatC
 
     for (const card of cardOpponent) {
 
-        if (cardsSelected.includes(card)) {
+        if (cardsSelected.find(({def_id}) => def_id === card.def_id)) {
             continue;
         }
         let combineStat = 0;
