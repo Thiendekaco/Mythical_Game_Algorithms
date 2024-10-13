@@ -8,7 +8,7 @@
     "dev": "webpack --mode development --watch",
     "test": "jest",
     "lint": "eslint ./src",
-    "convert-excel-to-json": "node ./scripts/convertExcelToJson.mjs",
+    "convert-excel-to-json": "node ../Mythical-Card-Game/scripts/convertExcelToJson.mjs",
     "start": "yarn convert-excel-to-json && yarn dev"
   },
   "keywords": [],

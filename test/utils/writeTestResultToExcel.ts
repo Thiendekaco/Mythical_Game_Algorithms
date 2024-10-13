@@ -21,7 +21,8 @@ interface RoundJsonToTest {
     score: number,
     totalScore?: string,
     cardPlayer?: string,
-    cardPlayerPool?: string
+    cardPlayerPool?: string,
+    [key: string]: string | number | boolean | undefined
 }
 
 
@@ -89,7 +90,7 @@ export const writeTestResultToExcel = (filePath: string, newData: any[], sheetNa
     XLSX.writeFile(workBook, filePath);
 };
 
-export const convertRoundDataToExcelData = (rounds: RoundJson[], idGame: string, cardPlayerPool: CardJson[], gameCount: number): (RoundJsonToTest | Record<string, string>)[] => {
+export const convertRoundDataToExcelData = (rounds: RoundJson[], idGame: string, cardPlayerPool: CardJson[], gameCount: number, eventStats: StatCard[]): (RoundJsonToTest | Record<string, string>)[] => {
     let totalScore = 0;
 
     return rounds.reduce<(RoundJsonToTest | Record<string, string>)[]>((arr, round, index) => {
@@ -101,7 +102,7 @@ export const convertRoundDataToExcelData = (rounds: RoundJson[], idGame: string,
             stats: JSON.stringify(round.stats),
             remainingStats: JSON.stringify(round.remainingStats),
             idealStat: JSON.stringify(round.idealStat),
-            cardOpponentPool: JSON.stringify(round.cardOpponentPool?.map(({def_id, level}) => def_id + 'lvl' + level) || 'undefined'),
+            cardOpponentPool: JSON.stringify(round.cardOpponentPool?.map((card) => card.def_id + 'lvl' + card.level + ':' + round.stats.reduce((acc, stat) => acc + card[stat], 0)) || 'undefined'),
             cardOpponent: round.cardOpponent?.def_id + 'lvl' + round.cardOpponent?.level,
             cardOpponentStatPoint: round.cardOpponentStatPoint,
             cardPlayer: round.cardPlayer?.def_id &&round.cardPlayer?.def_id + 'lvl' + round.cardPlayer?.level,
@@ -122,10 +123,24 @@ export const convertRoundDataToExcelData = (rounds: RoundJson[], idGame: string,
         }
 
         if(index === 0){
+            const cardPlayerStat = cardPlayerPool.reduce<Record<string, string>>((record, card, currentIndex) => {
+                record[`CardPlayer${currentIndex + 1}`] = JSON.stringify(eventStats.reduce<(Record<string, number| string>)[]>((arrRecord, stat, currentIndex) => {
+                    if(currentIndex === 0) {
+                        arrRecord.push({['def_id']: card['def_id'] + 'lvl' + card['level']});
+                    }
+
+                    arrRecord.push({[stat]: card[stat]});
+                    return arrRecord;
+                }, []));
+                return record;
+            }, {});
+
+
             roundRs = {
                 index: gameCount,
                 ...roundRs,
-                cardPlayerPool: JSON.stringify(cardPlayerPool.map(({def_id, level}) => def_id + 'lvl' + level))
+                cardPlayerPool: JSON.stringify(cardPlayerPool.map(({def_id, level}) => def_id + 'lvl' + level)),
+                ...cardPlayerStat
             }
         }
 

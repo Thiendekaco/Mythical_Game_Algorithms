@@ -17,20 +17,20 @@ export const rangeStatGamePlay = (stats: StatCard[], card: CardJson[]): Record<s
     }, {});
 }
 
-export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[], maxStatsPoint: number): CardJson[] => {
+export const getOpponentCardRandomList = (cardOpponent: CardJson[], stats: StatCard[], idealStat: Record<string, number>, toleranceRange: number, cardsSelected: CardJson[], maxStatsPoint: number, cardOpponentSelectedInEachRound: string[]): CardJson[] => {
 
     for (const card of cardOpponent) {
 
-        if (cardsSelected.find(({def_id}) => def_id === card.def_id)) {
+        if (cardsSelected.find(({def_id}) => def_id === card.def_id) || cardOpponentSelectedInEachRound.includes(card.def_id)) {
             continue;
         }
-        let combineStat = 0;
 
-        const isCardOpponentSuitable = stats.every((stat) => {
-            const diff = Math.abs(card[stat] - idealStat[stat]);
-            combineStat += card[stat];
-            return diff <= toleranceRange;
-        }) && combineStat <= maxStatsPoint;
+        const statsOpponentCombine = stats.reduce((sumStat, stat) => sumStat + card[stat], 0);
+        const idealStatCombine = stats.reduce((sumStat, stat) => sumStat + idealStat[stat], 0);
+        const diffStat = Math.abs(statsOpponentCombine - idealStatCombine);
+
+
+        const isCardOpponentSuitable = diffStat <= toleranceRange && statsOpponentCombine <= maxStatsPoint;
 
         if (isCardOpponentSuitable) {
             cardsSelected.push(card);

@@ -57,6 +57,7 @@ export const getOpponentCardMiddleware =  (cardsStore: CardJson[],  cardsPlaySel
 export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOpponents: CardJson[], eventGame: EventJson): RoundJson[] => {
     const { stats: statsOfEvent, baseDifficulty, round: roundEvent } = eventGame;
     const cardsPlayer = [...player.cardsPlayGame];
+    const cardOpponentRandomInEachRound: string[] = [];
     const rounds: RoundJson[] = [];
     console.log('LOG: Creat stat of each round,  Rounds');
 
@@ -94,9 +95,11 @@ export const createRoundsOfGameMiddleware =  ( player: PlayerJoinGame, cardOppon
             const combineStat = randomStats.reduce((sumStat, stat) => sumStat + card[stat], 0);
             return Math.max(maxStat, combineStat);
         }, 0);
-        const {cardOpponent, cardOpponentPool} = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, maxStatPoint);
+        const {cardOpponent, cardOpponentPool} = selectCardOpponentForEachRound(cardOpponents, randomStats, idealStat, maxStatPoint, cardOpponentRandomInEachRound);
 
         const cardPlayerCanBeat = selectCardPlayerCanBeat(cardsPlayer, cardOpponent, randomStats);
+        cardOpponentRandomInEachRound.push(cardOpponent.def_id);
+
         if (cardPlayerCanBeat) {
             cardsPlayer.splice(cardsPlayer.indexOf(cardPlayerCanBeat), 1);
         }
@@ -130,12 +133,12 @@ export const calculateIdealStat = (stats: StatCard[], difficulty: number, rangeS
     }, {});
 }
 
-const selectCardOpponentForEachRound = (cardOpponents: CardJson[], stats: StatCard[], idealStat: Record<string, number>, maxStatPoint: number) => {
+const selectCardOpponentForEachRound = (cardOpponents: CardJson[], stats: StatCard[], idealStat: Record<string, number>, maxStatPoint: number, cardOpponentSelectedInEachRound: string[]) => {
     const cardOpponentSelected: CardJson[] = [];
     let toleranceRange = INITIAL_TOLERANCE_RANGE;
 
     while (cardOpponentSelected.length < CARD_OPPONENT_LENGTH) {
-        getOpponentCardRandomList(cardOpponents, stats, idealStat, toleranceRange, cardOpponentSelected, maxStatPoint);
+        getOpponentCardRandomList(cardOpponents, stats, idealStat, toleranceRange, cardOpponentSelected, maxStatPoint, cardOpponentSelectedInEachRound);
         toleranceRange += 1;
     }
 
